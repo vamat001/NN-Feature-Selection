@@ -150,7 +150,7 @@ def backward_elimination():
         if best_so_far_accuracy > best_set_of_features[1]:
             best_set_of_features[0] = copy.deepcopy(current_set_of_features)
             best_set_of_features[1] = best_so_far_accuracy
-        print("On level " + str(i) + " i removed feature " + str(feature_to_remove + " from current set with accuracy " + str(best_so_far_accuracy))
+        print("On level " + str(i) + " i removed feature " + str(feature_to_remove) + " from current set with accuracy " + str(best_so_far_accuracy))
         print("Best set of features so far: ", best_set_of_features[0])
         print("With accuracy: ",best_set_of_features[1])
 
