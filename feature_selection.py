@@ -2,12 +2,7 @@ from dis import dis
 import pandas as pd
 import numpy as np
 import sys
-
-# df = pd.read_fwf("CS205_SP_2022_SMALLtestdata__28.txt",sep=" ",header=None)
-# cols = [4,1,2]
-# data = df.loc[:,cols]
-# data.columns = range(data.columns.size)
-# print(data)
+import copy
 
 def main():
     # print("Welcome to Vivek Amatya's Feature Selection Algorithm.")
@@ -21,10 +16,12 @@ def main():
 def accuracy(df,current_set,feature_to_add):
 
     number_correctly_classfied = 0
-    features = current_set
+    features = copy.deepcopy(current_set)
     features.append(feature_to_add)
+    features.insert(0,0) # we always need the 0th column for classes
     data = df.loc[:,features] # get only the features we care about
     data.columns = range(data.columns.size)
+    # print(data)
 
     # begin outer loop
     for i in range(len(data)):
@@ -47,6 +44,7 @@ def accuracy(df,current_set,feature_to_add):
                     nn_loc = k
                     nn_label = data.iloc[nn_loc][0]
         # end inner loop
+
         if label == nn_label:
             number_correctly_classfied += 1
     # end outer loop
@@ -55,34 +53,43 @@ def accuracy(df,current_set,feature_to_add):
 # feature search
 def feature_search():
 
-    df = pd.read_fwf("CS205_SP_2022_SMALLtestdata__28.txt",sep=" ",header=None) # read text file into pandas dataframe
+    df = pd.read_fwf("CS205_SP_2022_Largetestdata__27.txt",sep=" ",header=None) # read text file into pandas dataframe
     num_features = len(df.iloc[0])-1 # number of features is just the length of the second dimension of dataframe
     current_set_of_features = [] # initialize to empty set
+    best_set_of_features = [[0],0] # the set of features that gives highest accuracy
 
     # outer feature set loop
-    for i in range(num_features):
-        print("On the " + str(i+1) + "th level of the search tree")
-        feature_to_add = [] # feature to add at this level
+    for i in range(1,num_features+1):
+        print("On the " + str(i) + "th level of the search tree")
+        feature_to_add = None # feature to add at this level
         best_so_far_accuracy = 0 # keep track of highest accuracy
 
         # inner feature set loop
-        for k in range(num_features):
-            # if k in current_set_of_features:
-            #     continue
-            print("--Considering adding the " + str(k+1) + " feature")
-            acc = accuracy(df,current_set_of_features,k+1) # check accuracy using leave one out cross validation
-            print(acc)
+        for k in range(1,num_features+1):
+            if k in current_set_of_features:
+                continue
+            print("--Considering adding the " + str(k) + " feature")
+            acc = accuracy(df,current_set_of_features,k) # check accuracy using leave one out cross validation
+            # print(acc)
 
             if acc > best_so_far_accuracy:
                 best_so_far_accuracy = acc
                 feature_to_add = k
-
-        current_set_of_features.append(feature_to_add)
-        print("On level " + str(i+1) + " i added feature " + str(feature_to_add+1) + " to current set")
-
         # end inner loop
 
+        current_set_of_features.append(feature_to_add)
+        if best_so_far_accuracy > best_set_of_features[1]:
+            best_set_of_features[0] = copy.deepcopy(current_set_of_features)
+            best_set_of_features[1] = best_so_far_accuracy
+        print("On level " + str(i) + " i added feature " + str(feature_to_add) + " to current set")
+        print("Best set of features so far: ", best_set_of_features[0])
+        print("With accuracy: ",best_set_of_features[1])
+
     # end outer loop
+
+    print("Search finished! Best set of features: ", best_set_of_features[0])
+    print("With accuracy: ",best_set_of_features[1])
+
     return
 
 if __name__ == "__main__":
