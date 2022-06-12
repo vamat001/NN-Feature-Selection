@@ -1,23 +1,36 @@
 from dis import dis
+from operator import indexOf
 import pandas as pd
 import numpy as np
 import sys
 import copy
+import multiprocessing as mp
+from multiprocessing import Pool
+from itertools import product
+from functools import partial
+import time
 
 def main():
-    # print("Welcome to Vivek Amatya's Feature Selection Algorithm.")
-    # file = input("Type in the name of the file to test: ")
-    # algorithm = input("\nType the number of the algorithm you want to run.\n\n\t1) Forward Selection\n\t2) Backward Elimination\n")
-    feature_search()
-    # df = pd.read_fwf("CS205_SP_2022_SMALLtestdata__28.txt",sep=" ",header=None)
-    # print(accuracy(df,0,0))
+    print("Welcome to Vivek Amatya's Feature Selection Algorithm.")
+    file = input("Type in the name of the file to test: ")
+    algorithm = input("\nType the number of the algorithm you want to run.\n\n\t1) Forward Selection\n\t2) Backward Elimination\n")
+    df = pd.read_fwf(file,sep=" ",header=None) # read text file into pandas dataframe
+    if algorithm == "1":
+        forward_selection(df)
+    elif algorithm == "2":
+        backward_elimination(df)
+    else:
+        exit(1)
 
 # leave one out cross validation
-def accuracy(df,current_set,feature_to_add):
+def accuracy(df,current_set,f_b,feature_to_):
 
     number_correctly_classfied = 0
     features = copy.deepcopy(current_set)
-    features.append(feature_to_add)
+    if f_b == 'f':
+        features.append(feature_to_)
+    else:
+        features.remove(feature_to_)
     features.insert(0,0) # we always need the 0th column for classes
     data = df.loc[:,features] # get only the features we care about
     data.columns = range(data.columns.size)
@@ -51,9 +64,9 @@ def accuracy(df,current_set,feature_to_add):
     return number_correctly_classfied/len(data)
 
 # feature search
-def feature_search():
+def forward_selection(df):
 
-    df = pd.read_fwf("CS205_SP_2022_Largetestdata__27.txt",sep=" ",header=None) # read text file into pandas dataframe
+    # df = pd.read_fwf("CS205_SP_2022_SMALLtestdata__28.txt",sep=" ",header=None) 
     num_features = len(df.iloc[0])-1 # number of features is just the length of the second dimension of dataframe
     current_set_of_features = [] # initialize to empty set
     best_set_of_features = [[0],0] # the set of features that gives highest accuracy
@@ -64,24 +77,85 @@ def feature_search():
         feature_to_add = None # feature to add at this level
         best_so_far_accuracy = 0 # keep track of highest accuracy
 
+        args = []
+        for x in range(1,num_features+1):
+            if x not in current_set_of_features:
+                args.append(x)
+        with Pool(processes=mp.cpu_count()) as p:
+            func = partial(accuracy,df,current_set_of_features,'f')
+            results = p.map(func,args)
+        best_so_far_accuracy = max(results)
+        feature_to_add = args[results.index(best_so_far_accuracy)]
         # inner feature set loop
-        for k in range(1,num_features+1):
-            if k in current_set_of_features:
-                continue
-            print("--Considering adding the " + str(k) + " feature")
-            acc = accuracy(df,current_set_of_features,k) # check accuracy using leave one out cross validation
-            # print(acc)
+        # for k in range(1,num_features+1):
+        #     if k in current_set_of_features:
+        #         continue
+        #     print("--Considering adding the " + str(k) + " feature")
+        #     pool = mp.Pool(processes=10)
+            
+        #     acc = accuracy(df,current_set_of_features,'f',k) # check accuracy using leave one out cross validation
+        #     # print(acc)
 
-            if acc > best_so_far_accuracy:
-                best_so_far_accuracy = acc
-                feature_to_add = k
-        # end inner loop
+        #     if acc > best_so_far_accuracy:
+        #         best_so_far_accuracy = acc
+        #         feature_to_add = k
+        # # end inner loop
 
         current_set_of_features.append(feature_to_add)
         if best_so_far_accuracy > best_set_of_features[1]:
             best_set_of_features[0] = copy.deepcopy(current_set_of_features)
             best_set_of_features[1] = best_so_far_accuracy
-        print("On level " + str(i) + " i added feature " + str(feature_to_add) + " to current set")
+        print("On level " + str(i) + " i added feature " + str(feature_to_add) + " to current set with accuracy " + str(best_so_far_accuracy))
+        print("Best set of features so far: ", best_set_of_features[0])
+        print("With accuracy: ",best_set_of_features[1])
+
+    # end outer loop
+
+    print("Search finished! Best set of features: ", best_set_of_features[0])
+    print("With accuracy: ",best_set_of_features[1])
+
+    return
+
+def backward_elimination(df):
+
+    # df = pd.read_fwf("CS205_SP_2022_Largetestdata__27.txt",sep=" ",header=None) # read text file into pandas dataframe
+    num_features = len(df.iloc[0])-1 # number of features is just the length of the second dimension of dataframe
+    current_set_of_features = [x for x in range(1,num_features+1)] # initialize to all features
+    best_set_of_features = [[0],0] # the set of features that gives highest accuracy
+
+    # outer feature set loop
+    for i in range(1,num_features+1):
+        print("On the " + str(i) + "th level of the search tree")
+        feature_to_remove = None # feature to remove at this level
+        best_so_far_accuracy = 0 # keep track of highest accuracy
+
+        args = []
+        for x in range(1,num_features+1):
+            if x in current_set_of_features:
+                args.append(x)
+        with Pool(processes=mp.cpu_count()) as p:
+            func = partial(accuracy,df,current_set_of_features,'b')
+            results = p.map(func,args)
+        best_so_far_accuracy = max(results)
+        feature_to_remove = args[results.index(best_so_far_accuracy)]
+        # inner feature set loop
+        # for k in range(1,num_features+1):
+        #     if k not in current_set_of_features:
+        #         continue
+        #     print("--Considering removing the " + str(k) + " feature")
+        #     acc = accuracy(df,current_set_of_features,'b',k) # check accuracy using leave one out cross validation
+        #     # print(acc)
+
+        #     if acc > best_so_far_accuracy:
+        #         best_so_far_accuracy = acc
+        #         feature_to_remove = k
+        # end inner loop
+
+        current_set_of_features.remove(feature_to_remove)
+        if best_so_far_accuracy > best_set_of_features[1]:
+            best_set_of_features[0] = copy.deepcopy(current_set_of_features)
+            best_set_of_features[1] = best_so_far_accuracy
+        print("On level " + str(i) + " i removed feature " + str(feature_to_remove) + " from current set with accuracy " + str(best_so_far_accuracy))
         print("Best set of features so far: ", best_set_of_features[0])
         print("With accuracy: ",best_set_of_features[1])
 
@@ -93,4 +167,7 @@ def feature_search():
     return
 
 if __name__ == "__main__":
+    start_time = time.time()
+    mp.set_start_method('fork')
     main()
+    print("--- %s seconds ---" % (time.time()-start_time))
